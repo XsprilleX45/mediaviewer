@@ -1,0 +1,373 @@
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glass Media Player</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom styles for glassmorphism and player elements */
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent; /* Disable tap highlight on mobile */
+        }
+
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        /* Custom styling for range inputs (progress and volume) */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            outline: none;
+            transition: opacity .2s;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
+
+        /* Hide the default file input */
+        #fileInput {
+            display: none;
+        }
+
+        /* Responsive canvas */
+        canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white overflow-hidden">
+
+    <!-- Background Gradient -->
+    <div class="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 opacity-60 z-0"></div>
+
+    <!-- Main Player Container -->
+    <div class="relative min-h-screen w-full flex flex-col items-center justify-center p-4 z-10">
+        
+        <div class="w-full max-w-md mx-auto">
+            <!-- Media Display Area -->
+            <div id="media-display" class="relative w-full aspect-video bg-black/30 rounded-2xl shadow-2xl overflow-hidden glass-effect mb-6">
+                <!-- Video Player -->
+                <video id="videoPlayer" class="absolute top-0 left-0 w-full h-full hidden"></video>
+                <!-- Audio Visualizer -->
+                <canvas id="audioVisualizer" class="absolute top-0 left-0 w-full h-full"></canvas>
+                <!-- Welcome Message -->
+                <div id="welcomeMessage" class="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="opacity-50 mb-4"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                    <h2 class="text-xl font-bold">Glass Player</h2>
+                    <p class="text-white/70 mt-1">Tap below to select a local audio or video file.</p>
+                </div>
+            </div>
+
+            <!-- Media Info & Controls -->
+            <div class="w-full glass-effect rounded-2xl shadow-2xl p-5">
+                <!-- Track Info -->
+                <div class="text-center mb-4">
+                    <h3 id="trackName" class="font-bold text-lg truncate">No file selected</h3>
+                    <p id="trackArtist" class="text-sm text-white/60">---</p>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="flex items-center gap-3 mb-3">
+                    <span id="currentTime" class="text-xs w-10 text-center">0:00</span>
+                    <input type="range" id="progressSlider" value="0" min="0" max="100" class="flex-grow">
+                    <span id="totalDuration" class="text-xs w-10 text-center">0:00</span>
+                </div>
+
+                <!-- Main Controls -->
+                <div class="flex items-center justify-center gap-6">
+                    <!-- Volume Control -->
+                    <div class="flex items-center gap-2 w-24">
+                        <svg id="volumeIcon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                        <input type="range" id="volumeSlider" value="80" min="0" max="100">
+                    </div>
+
+                    <!-- Play/Pause Button -->
+                    <button id="playPauseBtn" class="bg-white text-gray-900 rounded-full w-16 h-16 flex items-center justify-center shadow-lg transform active:scale-90 transition-transform">
+                        <svg id="playIcon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                        <svg id="pauseIcon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="currentColor" class="hidden"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                    </button>
+
+                    <!-- File Select Button -->
+                    <label for="fileInput" class="w-24 flex justify-center cursor-pointer">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white/80 hover:text-white transition-colors"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    </label>
+                    <input type="file" id="fileInput" accept="audio/*,video/*">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM Element References ---
+        const fileInput = document.getElementById('fileInput');
+        const videoPlayer = document.getElementById('videoPlayer');
+        const audioVisualizer = document.getElementById('audioVisualizer');
+        const welcomeMessage = document.getElementById('welcomeMessage');
+        const trackName = document.getElementById('trackName');
+        
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const playIcon = document.getElementById('playIcon');
+        const pauseIcon = document.getElementById('pauseIcon');
+        
+        const progressSlider = document.getElementById('progressSlider');
+        const currentTime = document.getElementById('currentTime');
+        const totalDuration = document.getElementById('totalDuration');
+        
+        const volumeSlider = document.getElementById('volumeSlider');
+        const volumeIcon = document.getElementById('volumeIcon');
+
+        // --- Audio API Setup ---
+        let audioContext;
+        let analyser;
+        let source;
+        const canvasCtx = audioVisualizer.getContext('2d');
+        // Create an audio element in memory to handle playback and audio graph connection
+        const audioPlayer = new Audio();
+
+        // --- State Management ---
+        let currentMedia = null; // Will hold either videoPlayer or audioPlayer
+        let animationFrameId;
+
+        // --- Event Listeners ---
+        fileInput.addEventListener('change', handleFileSelect);
+        playPauseBtn.addEventListener('click', togglePlayPause);
+        progressSlider.addEventListener('input', handleSeek);
+        volumeSlider.addEventListener('input', handleVolumeChange);
+        
+        // --- Core Functions ---
+
+        function setupAudioContext() {
+            if (!audioContext) {
+                try {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    analyser = audioContext.createAnalyser();
+                    analyser.fftSize = 256;
+                    // Connect the in-memory audio element to the analyser
+                    source = audioContext.createMediaElementSource(audioPlayer);
+                    source.connect(analyser);
+                    analyser.connect(audioContext.destination);
+                } catch (e) {
+                    console.error("Web Audio API is not supported in this browser", e);
+                    alert("Sorry, the audio visualizer is not supported on your browser.");
+                }
+            }
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Revoke previous object URL to free up memory
+            if (currentMedia && currentMedia.src) {
+                URL.revokeObjectURL(currentMedia.src);
+            }
+
+            const objectURL = URL.createObjectURL(file);
+            resetPlayer();
+
+            if (file.type.startsWith('audio/')) {
+                setupAudioContext();
+                currentMedia = audioPlayer;
+                audioPlayer.src = objectURL;
+                
+                videoPlayer.classList.add('hidden');
+                audioVisualizer.classList.remove('hidden');
+                welcomeMessage.classList.add('hidden');
+                
+                trackName.textContent = file.name.replace(/\.[^/.]+$/, "");
+                visualize();
+            } else if (file.type.startsWith('video/')) {
+                currentMedia = videoPlayer;
+                videoPlayer.src = objectURL;
+
+                audioVisualizer.classList.add('hidden');
+                videoPlayer.classList.remove('hidden');
+                welcomeMessage.classList.add('hidden');
+
+                trackName.textContent = file.name.replace(/\.[^/.]+$/, "");
+            } else {
+                alert('Unsupported file type.');
+                return;
+            }
+
+            // Add event listeners to the new media source
+            currentMedia.addEventListener('loadedmetadata', setupMedia);
+            currentMedia.addEventListener('timeupdate', updateProgress);
+            currentMedia.addEventListener('ended', onMediaEnd);
+            currentMedia.addEventListener('volumechange', updateVolumeIcon);
+
+            // Set initial volume
+            handleVolumeChange();
+            togglePlayPause(); // Auto-play the selected file
+        }
+
+        function togglePlayPause() {
+            if (!currentMedia) return;
+
+            // Resume audio context on user gesture
+            if (audioContext && audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+
+            if (currentMedia.paused) {
+                currentMedia.play();
+                playIcon.classList.add('hidden');
+                pauseIcon.classList.remove('hidden');
+            } else {
+                currentMedia.pause();
+                playIcon.classList.remove('hidden');
+                pauseIcon.classList.add('hidden');
+            }
+        }
+
+        function setupMedia() {
+            progressSlider.max = currentMedia.duration;
+            totalDuration.textContent = formatTime(currentMedia.duration);
+        }
+
+        function updateProgress() {
+            if (!currentMedia) return;
+            progressSlider.value = currentMedia.currentTime;
+            currentTime.textContent = formatTime(currentMedia.currentTime);
+        }
+
+        function handleSeek() {
+            if (!currentMedia) return;
+            currentMedia.currentTime = progressSlider.value;
+        }
+
+        function handleVolumeChange() {
+            const volume = volumeSlider.value / 100;
+            if (videoPlayer) videoPlayer.volume = volume;
+            if (audioPlayer) audioPlayer.volume = volume;
+        }
+        
+        function updateVolumeIcon() {
+            const volume = currentMedia.volume;
+            const isMuted = currentMedia.muted || volume === 0;
+
+            let iconHtml = '';
+            if (isMuted) {
+                iconHtml = `<line x1="1" y1="1" x2="23" y2="23"></line><path d="M11 5L6 9H2v6h4l5 5V5z"></path>`;
+            } else if (volume < 0.5) {
+                iconHtml = `<path d="M11 5L6 9H2v6h4l5 5V5z"></path>`;
+            } else {
+                iconHtml = `<path d="M11 5L6 9H2v6h4l5 5V5z"></path><path d="M15.54 8.46a5 5 0 010 7.07"></path>`;
+            }
+            volumeIcon.innerHTML = iconHtml;
+        }
+
+        function onMediaEnd() {
+            playIcon.classList.remove('hidden');
+            pauseIcon.classList.add('hidden');
+            progressSlider.value = 0;
+            currentMedia.currentTime = 0;
+        }
+
+        function resetPlayer() {
+            if (currentMedia) {
+                currentMedia.pause();
+                currentMedia.removeEventListener('loadedmetadata', setupMedia);
+                currentMedia.removeEventListener('timeupdate', updateProgress);
+                currentMedia.removeEventListener('ended', onMediaEnd);
+                currentMedia.removeEventListener('volumechange', updateVolumeIcon);
+            }
+            cancelAnimationFrame(animationFrameId);
+            playIcon.classList.remove('hidden');
+            pauseIcon.classList.add('hidden');
+            trackName.textContent = "No file selected";
+            currentTime.textContent = "0:00";
+            totalDuration.textContent = "0:00";
+            progressSlider.value = 0;
+            canvasCtx.clearRect(0, 0, audioVisualizer.width, audioVisualizer.height);
+        }
+
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+        }
+
+        // --- Audio Visualizer Drawing ---
+        function visualize() {
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+
+            canvasCtx.clearRect(0, 0, audioVisualizer.width, audioVisualizer.height);
+
+            function draw() {
+                animationFrameId = requestAnimationFrame(draw);
+                analyser.getByteFrequencyData(dataArray);
+
+                canvasCtx.fillStyle = 'rgba(0, 0, 0, 0)'; // Clear with transparency
+                canvasCtx.fillRect(0, 0, audioVisualizer.width, audioVisualizer.height);
+
+                const barWidth = (audioVisualizer.width / bufferLength) * 2.5;
+                let barHeight;
+                let x = 0;
+                
+                const gradient = canvasCtx.createLinearGradient(0, 0, 0, audioVisualizer.height);
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+                gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.5)');
+                gradient.addColorStop(1, 'rgba(255, 255, 255, 0.2)');
+                canvasCtx.fillStyle = gradient;
+
+                for (let i = 0; i < bufferLength; i++) {
+                    barHeight = dataArray[i] * (audioVisualizer.height / 255);
+                    
+                    canvasCtx.fillRect(x, audioVisualizer.height - barHeight, barWidth, barHeight);
+
+                    x += barWidth + 1;
+                }
+            }
+            draw();
+        }
+        
+        // Ensure canvas is responsive
+        function resizeCanvas() {
+            const display = document.getElementById('media-display');
+            audioVisualizer.width = display.clientWidth;
+            audioVisualizer.height = display.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        // Initial size set
+        resizeCanvas();
+
+    </script>
+</body>
+</html>
